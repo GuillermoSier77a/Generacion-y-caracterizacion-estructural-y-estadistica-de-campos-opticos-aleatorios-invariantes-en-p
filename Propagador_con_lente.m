@@ -1,0 +1,1017 @@
+% PROPAGADOR CON LENTE
+
+% Este programa realiza simulaciones de propagación óptica de diferentes
+% campos mediante el método de la función de transferencia de Fresnel.
+% Se incluye una lente y se analiza la irradiancia en distintos planos de
+% propagación, así como su potencia y correlación con respecto al plano
+% imagen.
+
+%--------------------------------------------------------------------------
+
+% Cerramos todas las figuras, vaciamos el workspace y depuramos la
+% ventana de comando.
+close all; clear; clc;
+
+disp('INICIANDO')
+disp(' ')
+% Iniciamos el cronómetro para medir el tiempo total de ejecución.
+tic_total = tic;
+
+% Número de simulaciones que se realizarán
+numero_de_simulaciones = 2;
+
+% Variable que indica si las condiciones de la simulación son válidas
+validez = 1;
+
+% Ruta principal donde se almacenarán todos los resultados
+ruta_base = '/Users/guillermo/Desktop/UNAM/Óptica de Fourier/Diferentes radios';
+
+% Ruta donde se crearán las carpetas individuales de cada simulación
+ruta_de_carpeta_de_simulaciones = fullfile(ruta_base,'Simulaciones');
+
+% Si la carpeta ya existe, eliminarla junto con todo su contenido
+% Esto permite comenzar cada ejecución con una carpeta de resultados limpia
+if isfolder(ruta_base)
+
+    rmdir(ruta_base,'s');   % 's' = elimina la carpeta y todo lo que contiene
+
+end
+ 
+% -------------------------------------------------------------------------
+% Bucle principal: se ejecuta una simulación por cada valor de i
+% -------------------------------------------------------------------------
+for i = 1:numero_de_simulaciones
+
+    % Iniciamos un cronómetro para medir el tiempo total de la simulación
+    tic;
+
+    % Estilo-------------------------------------------------------------------
+
+    % Número identificador de la simulación actual
+    num_prueba = i;
+
+    % Creación de la carpeta
+
+    % Se crea una carpeta independiente para almacenar los resultados
+    % correspondientes a la simulación actual
+    ruta = fullfile(ruta_de_carpeta_de_simulaciones,sprintf('Simulación %d',num_prueba));
+    mkdir(ruta);
+
+    % Nombre de los archivos
+
+    % Archivo con la potencia del campo a lo largo de la propagación
+    filename_1 = fullfile(ruta,'Potencia.png');
+
+    % Archivo con el campo de referencia y su correlación
+    filename_2 = fullfile(ruta,'Coeficientes de correlación.png');
+
+    % Archivos correspondientes a la autocorrelación
+    filename_3_0 = fullfile(ruta,'Anillos de autocorrelación.png');
+
+    filename_3_1 = fullfile(ruta,'Autocorrelación global.png');
+
+    filename_3_2 = fullfile(ruta,'Autocorrelación corta distancia.png');
+
+    filename_3_3 = fullfile(ruta,'Autocorrelación larga distancia.png');
+
+    % Archivo GIF de la propagación
+    % filename_4 = fullfile(ruta,'Propagación.gif');
+
+    % Archivo de texto con los parámetros utilizados en la simulación
+    filename_5 = fullfile(ruta,'Parámetros.txt');
+
+    % Archivo CSV con los resultados numéricos de la simulación
+    filename_6 = fullfile(ruta,'Resultados de simulación.csv');
+
+    % Archivo que contiene las gráficas comparativas entre simulaciones
+    filename_7_g = fullfile(ruta_base,'FWHM_g.png');
+    filename_7_s = fullfile(ruta_base,'FWHM_s.png');
+    filename_7_l = fullfile(ruta_base,'FWHM_l.png');
+
+    % Archivo que contiene las gráficas comparativas entre simulaciones
+    filename_8 = fullfile(ruta_base,'Tiempo de ejecución.png');
+
+    % Archivo que contiene las gráficas comparativas entre simulaciones
+    filename_9 = fullfile(ruta_base,'Potencia promedio.png');
+
+    % Archivo que contiene las gráficas comparativas entre simulaciones
+    filename_10 = fullfile(ruta_base,'Coeficiente de correlación promedio.png');
+
+    % Archivo con el campo inicial
+    filename_11 = fullfile(ruta,'Campo inicial.png');
+
+    % Archivo con el campo en el plano de Fourier
+    filename_12 = fullfile(ruta,'Campo en el plano de Fourier.png');
+
+    % Archivo con el campo en el plano de Fourier sin envolvente
+    % filename_13 = fullfile(ruta,'Campo en el plano de Fourier sin envolvente.png');
+
+    % Archivo con el perfil de irradiancia del campo en el plano de Fourier sin envolvente
+    filename_14 = fullfile(ruta,'Perfil de irradiancia del campo en el plano de Fourier sin envolvente.png');
+
+    % Nombre del archivo de video donde se almacenará la propagación
+    video_filename = fullfile(ruta,'Propagación.mp4');
+
+    % Estilo-------------------------------------------------------------------
+
+    % Seleccionamos el mapa de colores que se utilizará en las gráficas
+    estilo = 'parula';                            
+
+    % Creamos el objeto encargado de generar el video
+    video = VideoWriter(video_filename,'MPEG-4');
+
+    % Número de cuadros por segundo del video (fps)
+    video.FrameRate = 5;                            
+
+    % Calidad del video
+    calidad_de_video = 100;
+    video.Quality = calidad_de_video;
+
+    % Abrimos el archivo de video para comenzar a escribir frames
+    open(video);
+
+    % Resolución utilizada posteriormente para guardar las gráficas
+    resolucion = 300;
+
+    % Lente--------------------------------------------------------------------
+
+    % Distancia focal de la lente [cm]
+    distancia_focal = 15; 
+
+    % Radio de la pupila circular [cm]
+    r_pupila = 2.54/2;     
+
+    % Fuente de luz------------------------------------------------------------
+
+    % Longitud de onda de la fuente de luz [cm]
+    lambda = 532*10^-7;   
+
+    % Número de onda
+    k = 2*pi/lambda;       
+
+    % Parámetros de propagación------------------------------------------------
+
+    % Selección del tipo de propagación:
+    % 1 = propagación paralela
+    % 2 = propagación transversal
+    propagacion = 1;   
+
+    % -------------------------------------------------------------------------
+    % Parámetros para propagación paralela
+    % -------------------------------------------------------------------------
+    if propagacion == 1
+
+        % Factor de magnificación utilizado para definir el tamaño de la
+        % ventana espacial
+        magnificacion = 7;
+
+        % Tamaño total de la ventana de cálculo [cm]
+        L = 2*0.1*magnificacion;                
+
+        % Número de muestras espaciales en cada dirección
+        M = 2^11;
+
+        % Número de frames de propagación (debe ser múltiplo de 3)
+        numero_de_frames = 48;
+
+        % Distancia máxima de propagación [cm]
+        z_max = 3*distancia_focal;              
+
+        % Tamaño de paso de propagación
+        paso_z = z_max/numero_de_frames;       
+
+        % Ancho del intervalo de muestreo
+        dx = L/M;                               
+
+        % Vector de coordenadas espaciales para los ejes x y y
+        x = -L/2:dx:L/2-dx;
+        
+        % Índice correspondiente aproximadamente al centro de la matriz
+        ordenada = floor(M/2)+1;
+        
+        % Vector de posiciones de propagación en z
+        vector_z = 0:paso_z:z_max;
+        
+        % Crear una ventana de Tukey para reducir efectos de borde
+        w = single(tukeywin(M,0.1));
+        
+        % Construir la ventana bidimensional a partir del producto exterior
+        soporte = w*w.';
+
+    % -------------------------------------------------------------------------
+    % Parámetros para propagación transversal
+    % -------------------------------------------------------------------------
+    elseif propagacion == 2
+
+        % Magnificación utilizada en esta configuración
+        magnificacion = 100;                   
+
+        % Tamaño de la ventana espacial [cm]
+        L = 0.5*magnificacion;               
+
+        % Número de muestras espaciales
+        M = 2^13;
+
+        % Tamaño de paso de propagación
+        paso_z = z_max/numero_de_frames;   
+
+        % Ancho del intervalo de muestreo
+        dx = L/M;  
+
+        % Vector de coordenadas espaciales para los ejes x y y
+        x = -L/2:dx:L/2-dx;
+
+        % Distancia máxima de propagación
+        z_max = 2*distancia_focal;              
+
+        % Índice correspondiente aproximadamente al centro de la matriz
+        ordenada = floor(M/2)+1;
+        
+        % Vector de posiciones de propagación en z
+        vector_z = 0:paso_z:z_max;
+        
+    end
+    
+    % Elección del campo a propagar--------------------------------------------
+        
+    % Lista de campos disponibles:
+    
+    % 1 = Haz gaussiano teórico
+    % 2 = Anillo gaussiano
+    % 3 = Anillo gaussiano con difusor
+    % 4 = Rejilla de fase sinusoidal (problema de la tarea 3)
+    % 5 = Rejilla de amplitud horizontal
+    % 6 = Haz Bessel
+    % 7 = Haz Mathieu
+    % 8 = Haz Weber
+    % 9 = Deltas simétricas
+    % 10 = Deltas asimétricas
+    % 11 = Vórtice
+    % 12 = Haz gaussiano con difusor
+
+    % Seleccionar el tipo de campo inicial
+    campo_propagado = 3;
+    
+    switch campo_propagado
+    
+        %----------------------------------------------------------------------
+        case 1  % Haz gaussiano teórico
+        %----------------------------------------------------------------------
+    
+            % Radio de la cintura del haz [cm]
+            w_0 = 1/10;
+    
+            % Distancia de Rayleigh
+            z_R = (k*w_0^2)/2;
+    
+            % Parámetro de propagación
+            p = 0.1;
+    
+            % Distancia de propagación
+            z = p*z_R;
+    
+            % Radio de curvatura del frente de onda
+            R_z = z*(1+(z_R/z)^2);
+    
+            % Generar el campo gaussiano teórico
+            u1 = U_HAZ_GAUSSIANO_TEORICO(x,z_R,0,k,w_0,R_z);
+    
+        %----------------------------------------------------------------------
+        case 2  % Anillo gaussiano
+        %----------------------------------------------------------------------
+    
+            % Radio central del anillo gaussiano [cm]
+            R_0 = 0.1;
+    
+            % Desviación estándar que determina el grosor del anillo [cm]
+            sigma = 0.0025;
+    
+            % Amplitud del campo
+            amplitud = 1;
+    
+            % Generar el anillo gaussiano
+            [u1, grosor] = U_0_anillo_gaussiano(x,sigma,amplitud,R_0);
+    
+        %----------------------------------------------------------------------
+        case 3  % Anillo gaussiano con difusor
+        %----------------------------------------------------------------------
+    
+            % Número de granos utilizados para generar el difusor
+            % num_granos = floor(M*(i/numero_de_simulaciones));
+            num_granos = 102*i;
+
+            % Número de granos en las direcciones x y y
+            num_granos_x = 2^11;
+            num_granos_y = 2^11;
+    
+            % Radio central del anillo gaussiano [cm]
+            % R_0 = 0.1*((i-1)/numero_de_simulaciones);
+            R_0 = 0.05;
+
+            % Desviación estándar del anillo gaussiano [cm]
+            % sigma = 120*i/numero_de_simulaciones*10^-4;
+            sigma = 20*10^-4;
+
+            % Amplitud del campo
+            amplitud = 1;
+    
+            % Límites angulares del difusor
+            ang_mayor = 2*pi;
+            ang_menor = 0;
+    
+            % Generar el anillo gaussiano con difusor
+            [u1, grosor, radio_exterior, size_grano_del_difusor] = anillo_con_difusor(ang_mayor,ang_menor,x,sigma,amplitud,num_granos,R_0);
+
+            size_grano_del_difusor_x = size_grano_del_difusor;
+
+            size_grano_del_difusor_y = size_grano_del_difusor;
+
+            % Generar el anillo sharp con difusor
+            % radio_exterior = 0.1;
+            % [u1, grosor] = U_0_anillo_con_difusor_sharp(radio_exterior, ang_mayor,ang_menor,x,amplitud,num_granos,R_0);
+
+            % Alternativa para utilizar granos rectangulares
+            % [u1, grosor] = U_0_anillo_con_difusor_granos_rectangulares(ang_mayor,ang_menor,x,sigma,amplitud,num_granos_x,num_granos_y,R_0);
+    
+        %----------------------------------------------------------------------
+        case 4  % Rejilla de fase sinusoidal
+        %----------------------------------------------------------------------
+    
+            % Diámetro de la pupila [cm]
+            D = 1;
+    
+            % Distancia focal de la lente [cm]
+            f = 100;
+    
+            % Parámetro Delta [cm]
+            Delta = 1;
+    
+            % Posición característica [cm]
+            X = 0.01;
+    
+            % Generar la rejilla de fase sinusoidal
+            u1 = U_fase_sinusoidal(x,Delta,X);
+
+        %----------------------------------------------------------------------
+        case 5  % Rejilla de amplitud horizontal
+        %----------------------------------------------------------------------
+    
+            % Número de franjas
+            N = 30;
+    
+            % Separación entre las franjas [cm]
+            Lambda = L/(magnificacion*N);
+    
+            % Grosor de las franjas [cm]
+            X = Lambda/2;
+    
+            % Generar la rejilla de amplitud horizontal
+            u1 = U_rejilla_horizontal(x,X,Lambda,N,L/magnificacion);
+    
+        %----------------------------------------------------------------------
+        case 6  % Haz Bessel
+        %----------------------------------------------------------------------
+    
+            % Radio central del anillo [cm]
+            R_0 = 0.05;
+    
+            % Desviación estándar del anillo [cm]
+            sigma = 20*10^-4;
+    
+            % Amplitud del campo
+            amplitud = 1;
+    
+            % Generar el campo tipo Bessel
+            u1 = anillo_bessel(x,sigma,amplitud,R_0);
+    
+        %----------------------------------------------------------------------
+        case 7  % Haz Mathieu
+        %----------------------------------------------------------------------
+    
+            % Radio central del anillo [cm]
+            R_0 = 0.1;
+    
+            % Desviación estándar del anillo [cm]
+            sigma = 0.001;
+    
+            % Amplitud del campo
+            amplitud = 1;
+    
+            % Parámetros del haz de Mathieu
+            m = 10;
+            q = 20;
+    
+            % Generar el campo tipo Mathieu
+            [u1, grosor] = anillo_mathieu(x,sigma,amplitud,R_0,m,q);
+    
+        %----------------------------------------------------------------------
+        case 8  % Haz Weber
+        %----------------------------------------------------------------------
+    
+            % Radio central del anillo [cm]
+            R_0 = 0.1;
+    
+            % Desviación estándar del anillo [cm]
+            sigma = 0.001;
+    
+            % Amplitud del campo
+            amplitud = 1;
+    
+            % Parámetro del haz de Weber
+            a = 20;
+    
+            % Generar el campo tipo Weber
+            [u1, grosor] = anillo_weber(x,sigma,amplitud,R_0,a);
+    
+        %----------------------------------------------------------------------
+        case 9  % Deltas simétricas
+        %----------------------------------------------------------------------
+    
+            % Radio central del anillo [cm]
+            R_0 = 0.1;
+    
+            % Desviación estándar del anillo
+            sigma = 0.001;
+    
+            % Amplitud del campo
+            amplitud = 1;
+    
+            % Número de deltas
+            n = 5;
+    
+            % Grosor angular de cada delta [rad]
+            dphi = (90/n)*pi/180;
+    
+            % Generar el campo con deltas simétricas
+            [u1, grosor] = anillo_deltas_2(x,sigma,amplitud,R_0,n,dphi);
+    
+        %----------------------------------------------------------------------
+        case 10  % Deltas asimétricas
+        %----------------------------------------------------------------------
+    
+            % Radio central del anillo [cm]
+            R_0 = 0.1;
+    
+            % Desviación estándar del anillo
+            sigma = 0.001;
+    
+            % Amplitud del campo
+            amplitud = 1;
+    
+            % Grosor angular de la delta [rad]
+            dphi = 2*pi/180;
+    
+            % Generar el campo con deltas asimétricas
+            [u1, grosor] = anillo_deltas_3(x,sigma,amplitud,R_0,dphi);
+    
+        %----------------------------------------------------------------------
+        case 11  % Vórtice
+        %----------------------------------------------------------------------
+    
+            % Radio central del anillo [cm]
+            R_0 = 0.1;
+    
+            % Desviación estándar del anillo [cm]
+            sigma = 0.001;
+    
+            % Amplitud del campo
+            amplitud = 1;
+    
+            % Carga topológica o parámetro azimutal
+            m = 5;
+    
+            % Generar el campo de vórtice
+            u1 = anillo_vortices(x,sigma,amplitud,R_0,m);
+    
+        %----------------------------------------------------------------------
+        case 12  % Haz gaussiano con difusor
+        %----------------------------------------------------------------------
+    
+            % Número de granos utilizados en el difusor
+            num_granos = 1000;
+    
+            % Número de granos en las direcciones x y y
+            num_granos_x = 2^11;
+            num_granos_y = 100*i;
+    
+            % Radio de la cintura del haz [cm]
+            w_0 = 0.005*20;
+    
+            % Amplitud del campo
+            amplitud = 1;
+    
+            % Límites angulares del difusor
+            ang_mayor = 2*pi;
+            ang_menor = 0;
+    
+            % Generar el haz gaussiano con difusor
+            [u1] = haz_gaussiano_con_difusor(ang_mayor,ang_menor,x,amplitud,num_granos,w_0);
+    
+            % Alternativa para utilizar granos rectangulares
+            
+            % [u1] = haz_gaussiano_con_difusor_granos_rectuangulares(ang_mayor,ang_menor,x,amplitud,num_granos_x,num_granos_y,w_0);
+    
+        %----------------------------------------------------------------------
+        otherwise
+        %----------------------------------------------------------------------
+    
+            % Mostrar un error si se selecciona una opción inexistente
+            error('El valor de campo_propagado debe estar entre 1 y 12.');
+    
+    end
+
+    % -------------------------------------------------------------------------
+    % Índice de la lente y del plano focal
+    % -------------------------------------------------------------------------
+
+    % Encontramos el índice del elemento de vector_z más cercano a la
+    % posición de la lente
+    [~,posicion_de_la_lente] = min(abs(vector_z - distancia_focal));
+
+    % Encontramos el índice del elemento de vector_z más cercano al plano
+    % de Fourier, situado a una distancia 2f
+    [~,posicion_del_plano_de_Fourier] = min(abs(vector_z - 2*distancia_focal));
+
+    % Propagador---------------------------------------------------------------
+
+    % Mostramos en la ventana de comandos el inicio de la simulación
+    %disp(['Iniciando simulación ',num2str(num_prueba),'/',num2str(numero_de_simulaciones),'.'])
+
+    % El anillo está contenido en el cuadrado inscrito en la pupila
+    % cuando el radio exterior cumple la condición indicada.
+    %
+    % Además, el tamaño de la ventana debe ser suficientemente grande para
+    % contener completamente el diámetro del anillo.
+    %
+    % (R_0 < sqrt(2)*r_pupila*0.5 - 2*sigma) && (2*(R_0+2*sigma) < L)
+
+    if (R_0 < sqrt(2)*r_pupila*0.5 - 2*sigma) && (2*(R_0+2*sigma) < L)
+
+        % Reproduce el sonido asociado al inicio de una simulación válida
+        % tono
+
+        %disp(' ')
+        %disp('Se han satisfecho los criterios de muestreo.')
+        %disp(' ')
+
+        % ---------------------------------------------------------------------
+        % Esqueleto del video
+        % ---------------------------------------------------------------------
+
+        % Creamos una figura invisible que contendrá la animación
+        fig = figure('Visible',"off","Units", 'pixels', 'Position', [100, 100, 1600, 800]);
+
+        % Dividimos la figura en dos paneles
+        tl = tiledlayout(fig,1,2, 'TileSpacing','compact', 'Padding','compact');
+
+        % ---------------------------------------------------------------------
+        % Subfigura izquierda
+        % ---------------------------------------------------------------------
+
+        % Seleccionamos el primer panel
+        ax1 = nexttile(tl);
+
+        % Creamos una imagen inicialmente llena de ceros.
+        % Posteriormente CData será reemplazado por la irradiancia.
+        hImg = imagesc(ax1,x/R_0,x/R_0,zeros(M));
+
+        % Colocamos el eje y en orientación ascendente
+        set(ax1,'YDir','normal')
+
+        % Etiquetas de los ejes
+        xlabel(ax1,'Eje x [R_0]','FontWeight','bold');
+        ylabel(ax1,'Eje y [R_0]','FontWeight','bold');
+
+        % Aplicamos el mapa de colores
+        colormap(ax1,estilo)
+
+        % Creamos la barra de color
+        cb1 = colorbar(ax1);
+        ylabel(cb1,'Irradiancia [U.A.]','FontWeight','bold')
+
+        % Tamaño de letra de los elementos de la gráfica
+        set(ax1,'FontSize',15,'FontWeight','bold')
+
+        % Mantenemos la misma escala en ambos ejes
+        axis(ax1,'equal')
+
+        % Ajustamos los límites a los datos
+        axis(ax1,'tight')
+
+        % Relación de aspecto cuadrada
+        pbaspect(ax1,[1 1 1])
+
+        % Título que será actualizado durante la propagación
+        t1 = title(ax1,'');
+
+        % ---------------------------------------------------------------------
+        % Subfigura derecha
+        % ---------------------------------------------------------------------
+
+        % Seleccionamos el segundo panel
+        ax2 = nexttile(tl);
+
+        % Creamos el perfil de irradiancia inicial.
+        % Posteriormente YData será actualizado en cada frame.
+        hPlot = plot(ax2,x/R_0,zeros(size(x)), 'LineWidth',1, 'Color','r');
+
+        % Etiqueta del eje horizontal
+        xlabel(ax2,'Eje x [R_0]','FontWeight','bold');
+
+        % Tamaño de letra
+        set(ax2,'FontSize',15,'FontWeight','bold')
+
+        % Ajustamos los límites de la gráfica
+        axis(ax2,'tight')
+
+        % Relación de aspecto cuadrada
+        pbaspect(ax2,[1 1 1])
+
+        % Activamos cuadrícula principal y secundaria
+        grid(ax2,'on')
+        grid(ax2,'minor')
+
+        % Título que será actualizado durante la propagación
+        t2 = title(ax2,'');
+
+        % ---------------------------------------------------------------------
+        % Definición de variables auxiliares
+        % ---------------------------------------------------------------------
+
+        % Vector donde se almacenará la potencia total del campo en cada z
+        Potencia = zeros(1,length(vector_z));
+
+        % Vector para almacenar la correlación con respecto al plano de Fourier
+        correlacion = nan(1,length(vector_z)-posicion_de_la_lente+1);
+
+        % Matriz donde se almacenará la irradiancia de los planos ubicados
+        % entre la lente y el plano de Fourier
+        Irradiancias = zeros(M,M,floor((length(vector_z)-posicion_de_la_lente)/2),'single');
+
+        % ---------------------------------------------------------------------
+        % Propagación paralela
+        % ---------------------------------------------------------------------
+        if propagacion == 1
+
+            % Recorremos todos los planos de propagación
+            for g = 1:length(vector_z)
+
+                % -------------------------------------------------------------
+                % Primer frame: campo inicial
+                % -------------------------------------------------------------
+                if g == 1
+
+                    % Calculamos la irradiancia inicial:
+                    I1 = single(abs(u1).^2); 
+
+                    % Actualizamos la imagen 2D
+                    set(hImg,'CData',I1);
+
+                    % Actualizamos el título indicando el frame y la posición z
+                    t1.String = sprintf(['Simulación ',num2str(num_prueba),' (z = 0)']);
+
+                    % Mostramos el perfil horizontal correspondiente a la
+                    % fila central de la matriz
+                    set(hPlot,'YData',I1(ordenada,:));
+
+                    % Título del perfil
+                    t2.String = sprintf(['Simulación ',num2str(num_prueba),' (y = ',num2str(x(ordenada)),', z = 0)']);
+                     
+                    % Potencia total del campo inicial.
+                    % La suma de la irradiancia se multiplica por dx^2,
+                    % correspondiente al área de cada elemento de muestreo.
+                    Potencia(g)=sum(I1,'all')*dx^2;
+
+                    % Descomentar la siguiente línea para generar un GIF:
+                    % imwrite(A,map,filename_4,'gif','LoopCount',Inf,'DelayTime',0.2); % Frame 0
+
+                % -------------------------------------------------------------
+                % Frames posteriores: propagación del campo
+                % -------------------------------------------------------------
+                else
+
+                    % Aplicamos la ventana de Tukey para reducir efectos de
+                    % borde antes de realizar la siguiente propagación
+                    u1 = u1.*soporte;
+
+                    % Propagamos el campo una distancia paso_z utilizando
+                    % la función de transferencia de Fresnel (H)
+                    u2 = propTF(u1,L,lambda,paso_z); 
+
+                    % Calculamos la irradiancia del campo propagado
+                    I2 = single(abs(u2).^2);      
+
+                    % Actualizamos la imagen 2D
+                    set(hImg,'CData',I2); 
+
+                    % Actualizamos el título
+                    t1.String = sprintf(['Simulación ',num2str(num_prueba),' (z = ',num2str(vector_z(g)/distancia_focal),'f)']);
+
+                    % Actualizamos el perfil central de irradiancia
+                    set(hPlot,'YData',I2(ordenada,:));
+
+                    % Actualizamos el título del perfil
+                    t2.String = sprintf(['Simulación ',num2str(num_prueba),' (y = ',num2str(x(ordenada)),', z = ',num2str(vector_z(g)/distancia_focal),'f)']);
+
+                end
+
+                % -------------------------------------------------------------
+                % Capturamos el frame actual
+                % -------------------------------------------------------------
+
+                % Actualizamos la figura antes de capturarla
+                drawnow limitrate
+
+                % Capturamos la figura como un frame
+                frame = getframe(fig);
+
+                % Descomentar las siguientes líneas para generar un GIF:
+                % img = frame2im(frame);
+                % [A,map] = rgb2ind(img,256);
+
+                % Escribimos el frame actual en el video MP4
+                writeVideo(video,frame);
+
+                % -------------------------------------------------------------
+                % Cálculo de la potencia
+                % -------------------------------------------------------------
+
+                if g ~= 1  
+
+                    % Potencia total del campo propagado
+                    Potencia(g)=sum(I2,'all')*dx^2;
+
+                    % Descomentar la siguiente línea para generar un GIF:
+                    % imwrite(A,map,filename_4,'gif','WriteMode','append','DelayTime',0.2); % Frames siguientes
+
+                    % ---------------------------------------------------------
+                    % Guardado de irradiancias entre la lente y el plano de Fourier
+                    % ---------------------------------------------------------
+                    if (posicion_de_la_lente <= g) && (g < posicion_del_plano_de_Fourier)
+
+                        % Guardamos la irradiancia del plano actual
+                        Irradiancias(:,:,g-posicion_de_la_lente+1) = I2;
+                    
+                    % ---------------------------------------------------------
+                    % Plano de Fourier
+                    % ---------------------------------------------------------
+                    elseif g == posicion_del_plano_de_Fourier
+
+                        % La irradiancia en este plano se utiliza como
+                        % referencia para calcular la correlación.
+
+                        I_ref = I2;
+
+                        % Normalizamos la irradiancia de referencia para que
+                        % la suma de todos sus elementos sea igual a 1
+                        I_ref_norm = I2/sum(I2(:));
+
+                        % envo = 20*i;
+                        % 
+                        % quitar_envolvente(envo,I_ref_norm,vector_z,g,filename_14,ordenada,I_ref,x,num_granos,filename_13,resolucion,num_prueba,distancia_focal,estilo)
+
+                        % Guardamos el campo de referencia y el vector espacial
+                        % save(fullfile(ruta,'Campo en el plano de Fourier'),'I_ref')
+                        % save(fullfile(ruta,'Vector x'),'x')
+                         
+                        % -----------------------------------------------------
+                        % Correlación con respecto al plano de Fourier
+                        % -----------------------------------------------------
+
+                        % Calculamos la correlación cruzada con respecto al plano de Fourier
+
+                        % Recorremos todos los planos almacenados entre la lente y el plano de Fourier
+                        for l = posicion_de_la_lente:(posicion_del_plano_de_Fourier-1)
+
+                            % Recuperamos la irradiancia del plano correspondiente
+                            I2 = Irradiancias(:,:,l-posicion_de_la_lente+1);
+
+                            % Normalizamos la irradiancia
+                            I2 = I2/sum(I2(:));
+
+                            % Calculamos la correlación de Pearson entre
+                            % la irradiancia actual y la irradiancia de referencia
+                            correlacion(l-posicion_de_la_lente+1) = corr2(I_ref_norm,I2);
+
+                        end
+
+                        % La correlación del plano de Fourier consigo mismo es 1
+                        correlacion(posicion_del_plano_de_Fourier-posicion_de_la_lente+1) = 1;
+
+                    % ---------------------------------------------------------
+                    % Planos posteriores al plano de Fourier
+                    % ---------------------------------------------------------
+                    elseif g > posicion_del_plano_de_Fourier
+
+                        % Normalizamos la irradiancia actual
+                        I2 = I2/sum(I2(:));
+
+                        % Calculamos la correlación con respecto a la irradiancia del plano de Fourier
+                        correlacion(g-posicion_de_la_lente+1) = corr2(I_ref_norm,I2);
+
+                    end
+
+                    % ---------------------------------------------------------
+                    % Aplicación de la lente
+                    % ---------------------------------------------------------
+
+                    if g == posicion_de_la_lente
+                        
+                        % Al llegar a la posición de la lente, multiplicamos
+                        % el campo propagado por la función de transmitancia
+                        % de la lente.
+                        u1 = u2.*lente(x,distancia_focal,k,r_pupila);
+
+                    else
+                        
+                        % En los demás planos, simplemente actualizamos el
+                        % campo que será propagado en el siguiente paso
+                        u1 = u2;
+
+                    end
+
+                end
+
+                % Mostramos en pantalla el progreso de la simulación
+                %disp(['Frame ',num2str(g),'/',num2str(length(vector_z)),' completado.'])
+            
+            end
+            
+        end
+
+        % Cerramos el archivo de video
+        close(video);
+
+        % ---------------------------------------------------------------------
+        % Código alternativo para generar una representación transversal
+        % ---------------------------------------------------------------------
+        % Este bloque está desactivado. Permitiría realizar una propagación
+        % transversal y construir una gráfica de irradiancia en función de
+        % z y x.
+        
+        % while (propagacion == 2) && (g == 1)
+        %     I1 = abs(u1).^2;        % Irradiancia [U.A.] del campo u1
+        %     I1 = I1/max(I1(:));
+        % 
+        %     figure('Visible',"off","Units", 'normalized', 'Position', [0, 0, 1, 1]);
+        %     imagesc(x,x,I1);
+        %     set(gca,'YDir','normal') 
+        %     title(['Frame ',num2str(g-1),' (z = 0 cm)']);
+        %     xlabel('Eje x [cm]');
+        %     ylabel('Eje y [cm]');
+        %     set(gca,'FontSize',35)
+        %     axis equal
+        %     axis tight
+        %     cb = colorbar;
+        %     colormap(gca, estilo)
+        %     ylabel(cb,'Irradiancia [U.A.]')
+        % 
+        %     I = zeros(length(u1),1);
+        %     I(:,1) = I1(ordenada,:)';
+        % 
+        %     for g = 2:length(vector_z)
+        %         u2 = propTF(u1,L,lambda,vector_z(g));
+        %         I2 = abs(u2).^2;
+        %         I2 = I2/max(I2(:));
+        %         I = [I,I2(ordenada,:)'];
+        % 
+        %         if g == (length(vector_z)+1)/2
+        %             u1 = u2.*lente(x,distancia_focal,k,r_pupila); % Actualizamos el campo que estamos propagando (multiplicamos por la función de transmitancia de la lente)
+        %         else
+        %             u1 = u2; % Actualizamos el campo que estamos propagando
+        %         end
+        %     end
+        % 
+        %     figure('Visible',"on","Units", 'normalized', 'Position', [0, 0, 1, 1]);    
+        %     imagesc(vector_z,x,I);
+        %     set(gca,'YDir','normal') 
+        %     title(['Propagación hasta una distanica de ',num2str(z_max),' cm (y = ',num2str(x(ordenada)),' cm)']);
+        %     xlabel('Eje z [cm]');
+        %     ylabel('Eje x [cm]');
+        %     set(gca,'FontSize',25)
+        %     colormap(gca, estilo)
+        %     cb = colorbar;   
+        %     ylabel(cb,'Irradiancia [U.A.]')
+        % 
+        %     g = g+1;
+        % end
+   
+        % ---------------------------------------------------------------------
+        % Análisis posterior a la propagación
+        % ---------------------------------------------------------------------
+   
+        %disp(' ')
+        %disp('Generando gráficos auxiliares...')
+
+        % Realizamos el análisis de las imágenes obtenidas
+        filtro_DoG(R_0,x,I_ref,ruta,calidad_de_video,num_prueba);
+
+        % Generamos las gráficas auxiliares y obtenemos los FWHM
+
+        graficos_campos(radio_exterior,R_0,filename_12,estilo,I1,filename_11,I_ref,num_prueba,x);
+
+        [promedio_de_potencia] = graficos_potencia(distancia_focal,filename_1,num_prueba,vector_z,Potencia);
+
+        [promedio_de_correlacion] = graficos_correlacion(distancia_focal,filename_2,num_prueba,vector_z,correlacion,posicion_de_la_lente);
+
+        [r_0,r_1,r_2,ordenadas,FWC25,FWC50,FWC75,autocorrelacion,idx_1,idx_2] = calculo_autocorrelaciones(R_0,I_ref_norm,x);
+
+        graficos_autocorrelaciones(idx_1,idx_2,autocorrelacion,r_0,r_1,r_2,ordenadas,FWC25,FWC50,FWC75,estilo,R_0,filename_3_0,filename_3_1,filename_3_2,filename_3_3,num_prueba,resolucion,x);
+
+        % Detenemos el cronómetro y obtenemos el tiempo total de ejecución
+        tiempo = toc;
+    
+        %disp(' ')
+        %disp('Generando archivos de parámetros de propagación...')
+        
+        % Guardamos los parámetros y resultados en un archivo de texto
+        [lambda, distancia_focal, L, M, paso_z, dx, num_granos, ...
+            size_grano_del_difusor_x, size_grano_del_difusor_y, R_0, grosor, ...
+            amplitud, ang_mayor, ang_menor, FWC50, FWC75, FWC25, tiempo] = archivo_txt(promedio_de_potencia,promedio_de_correlacion,size_grano_del_difusor_x,size_grano_del_difusor_y,filename_5,num_prueba,lambda,distancia_focal,L,M,paso_z,dx,num_granos,R_0,grosor,amplitud,ang_mayor,ang_menor,FWC50,FWC75,FWC25,tiempo);
+
+        % Guardamos los mismos resultados en formato CSV
+        archivo_csv(promedio_de_potencia,promedio_de_correlacion,size_grano_del_difusor_x,size_grano_del_difusor_y,filename_6,num_prueba,lambda,distancia_focal,L,M,paso_z,dx,num_granos,R_0,grosor,amplitud,ang_mayor,ang_menor,FWC50,FWC75,FWC25,tiempo);
+
+        %disp(' ')
+    
+        % ---------------------------------------------------------------------
+        % Código desactivado para verificar los criterios de muestreo
+        % ---------------------------------------------------------------------
+        
+        % if propagacion == 1
+        % 
+        %     if g == length(vector_z) 
+        % 
+        %         %disp('Listo, simulación exitosa.')
+        % 
+        %     elseif g == 1
+        % 
+        %         %disp('Verificar la condición \delta x > \lambda * z / L')
+        % 
+        %     else
+        % 
+        %         %disp(['Listo. Se dejaron de satisfacer los criterios de muestreo y el programa se detuvo en el frame ',num2str(g-2)])
+        % 
+        %     end
+        % 
+        % end
+        
+        % Indicamos que la simulación terminó correctamente
+        %disp(['Simulación ',num2str(num_prueba),'/',num2str(numero_de_simulaciones),' exitosa.'])
+        %disp(' ')
+
+    else
+        
+        % Si no se cumplen las condiciones de propagación, se reproduce un
+        % sonido indicando que ocurrió un error
+        sonido_de_falla
+
+        %disp(' ')
+        %disp('¡ERROR!')
+        %disp(' ')
+        %disp('No se han satisfecho los criterios de muestreo.')
+        %disp(' ')
+        %disp('Verifica los parámetros de propagación.')
+
+        % Marcamos la simulación como no válida
+        validez = 0;
+    
+    end
+end
+
+% -------------------------------------------------------------------------
+% Análisis final de todas las simulaciones
+% -------------------------------------------------------------------------
+
+% Si todas las simulaciones fueron consideradas válidas
+if validez == 1
+
+    %disp('Generando gráficos comparativos...')
+    
+    if num_prueba ~= 1
+
+        % Analizamos los resultados numéricos de todas las simulaciones
+        analisis_de_datos(ruta_base,ruta_de_carpeta_de_simulaciones,numero_de_simulaciones)
+    
+        % Generamos las gráficas comparativas de FWHM y tiempo de ejecución
+        graficas_comparativas(filename_9,filename_10,filename_8,resolucion,filename_7_g,filename_7_s,filename_7_l,numero_de_simulaciones,ruta_de_carpeta_de_simulaciones)
+        
+    end
+
+    % Calculamos el tiempo total de ejecución de todo el programa.
+    tiempo_total = toc(tic_total);
+    
+    %disp(' ')
+    
+    % Mostramos un mensaje indicando que la simulación terminó.
+    %disp('¡LISTO!')
+    
+    %disp(' ')
+    
+    % Mostramos el tiempo total de cómputo en minutos.
+    disp(['Tiempo de cómputo: ',num2str(tiempo_total/60),' min.'])
+        
+    % Reproduce el sonido indicando que todas las simulaciones terminaron
+    terminado
+
+end
